@@ -1,0 +1,417 @@
+#!/usr/bin/env python3
+
+import argparse
+import subprocess
+import sys
+import os
+import platform
+import shutil
+from pathlib import Path
+from typing import Any
+
+
+class Paths:
+    project_root = Path(__file__).parent
+    build_dir = project_root / "build"
+    build_linux_dir = project_root / "build_linux"
+    install_dropbox = Path("/Volumes/dyn/Dropbox/_env/scripts")
+    install_svc = Path("/Volumes/svc/@env/scripts")
+
+
+class BuildScript:
+    def __init__(self):
+        self.build_type = "Debug"
+        self.target = "cov"
+
+        if platform.system() == "Darwin":
+            self.build_dir = Paths.build_dir
+        elif platform.system() == "Linux":
+            self.build_dir = Paths.build_linux_dir
+        else:
+            print("Unsupported operating system")
+            sys.exit(1)
+
+    def run_command(self, cmd, cwd=None, check=True):
+        if cwd is None:
+            cwd = Paths.project_root
+
+        print(f"Executing command: {' '.join(cmd)}")
+        print(f"Working directory: {cwd}")
+
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=cwd,
+                check=check,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            if result.stdout:
+                print(result.stdout)
+            return result.returncode == 0
+        except subprocess.CalledProcessError as e:
+            print(f"Command execution failed: {e}")
+            if e.stdout:
+                print(e.stdout)
+            return False
+
+    def clean(self):
+        print(f"Cleaning build directory: {self.build_dir}")
+
+        if self.build_dir.exists():
+            shutil.rmtree(self.build_dir)
+            print("Build directory cleaned")
+        else:
+            print("Build directory does not exist, no need to clean")
+
+    def configure(self, enable_tests=False):
+        print(f"Configuring CMake - Build type: {self.build_type}")
+
+        self.build_dir.mkdir(exist_ok=True)
+
+        cmd = [
+            "cmake",
+            "-B",
+            str(self.build_dir),
+            f"-DCMAKE_BUILD_TYPE={self.build_type}",
+        ]
+
+        if enable_tests:
+            cmd.append("-DBUILD_TEST=ON")
+            print("Enabling test build")
+
+        if "build_linux" in str(self.build_dir):
+            cmd.extend(
+                [
+                    "-DCMAKE_C_COMPILER=/usr/bin/clang",
+                    "-DCMAKE_CXX_COMPILER=/usr/bin/clang++",
+                ]
+            )
+            print("Using Linux configuration with clang compilers")
+
+        return self.run_command(cmd)
+
+    def build(self):
+        print(f"Building target: {self.target}")
+
+        cmd = [
+            "cmake",
+            "--build",
+            str(self.build_dir),
+            "--config",
+            self.build_type,
+            "--target",
+            self.target,
+        ]
+
+        return self.run_command(cmd)
+
+    def find_exec(self):
+        print(f"Looking for executable: {self.target}")
+
+        potential_paths = [
+            self.build_dir / self.target,
+            self.build_dir / "src" / self.target,
+            self.build_dir / "bin" / self.target,
+        ]
+
+        for exe_path in potential_paths:
+            if exe_path.is_file() and os.access(exe_path, os.X_OK):
+                print(f"Found executable: {exe_path}")
+                return exe_path
+
+        for exe_path in self.build_dir.rglob(self.target):
+            if exe_path.is_file() and os.access(exe_path, os.X_OK):
+                print(f"Found executable: {exe_path}")
+                return exe_path
+
+        print(f"Executable not found: {self.target}")
+        return None
+
+    def install(self, executable_path):
+        if not Paths.install_dropbox.exists():
+            print(f"Creating install directory: {Paths.install_dropbox}")
+            Paths.install_dropbox.mkdir(parents=True, exist_ok=True)
+
+        dest_path = Paths.install_dropbox / self.target
+        print(f"Installing executable: {executable_path} -> {dest_path}")
+
+        try:
+            shutil.copy2(executable_path, dest_path)
+            dest_path.chmod(0o755)
+            print("Installation successful")
+            return True
+        except Exception as e:
+            print(f"Installation failed: {e}")
+            return False
+
+    def run_tests(self, specific_test=None, test_case=None):
+        tars = ["test_base", "test_exec", "test_lib", "test_mod", "test_run"]
+
+        if specific_test:
+            if specific_test in tars:
+                tars = [specific_test]
+                print(f"Running specific test: {specific_test}")
+            else:
+                print(
+                    f"Error: Unknown test '{specific_test}'. Available tests: {', '.join(tars)}"
+                )
+                return False
+        else:
+            print("Running all tests")
+
+        success = True
+        for test_target in tars:
+            print(f"Building test target: {test_target}")
+            cmd = [
+                "cmake",
+                "--build",
+                str(self.build_dir),
+                "--config",
+                self.build_type,
+                "--target",
+                test_target,
+            ]
+
+            if not self.run_command(cmd, check=False):
+                print(f"Warning: Test {test_target} build failed")
+                success = False
+                continue
+
+            test_exe = self.build_dir / test_target
+            if test_exe.exists() and os.access(test_exe, os.X_OK):
+                print(f"Executing test: {test_target}")
+
+                test_cmd = [str(test_exe)]
+                if test_case:
+                    test_cmd.extend(["--test-case", test_case])
+                    print(f"Running specific test case: {test_case}")
+
+                test_success = self.run_command(test_cmd, check=False)
+                if not test_success:
+                    success = False
+                    print(f"Test {test_target} execution failed")
+                else:
+                    print(f"Test {test_target} executed successfully")
+            else:
+                print(f"Test executable not found or not executable: {test_target}")
+                success = False
+
+        return success
+
+    def run_docker_build(self, target="cov", install=False):
+        image_name = "conv-linux-compiler"
+        container_name = "conv-linux"
+
+        print(f"Building target '{target}' using Docker...")
+
+        # Check if image exists, build if not
+        cmd_check_image = ["docker", "image", "inspect", image_name]
+        if not self.run_command(cmd_check_image, check=False):
+            print("Docker image not found. Building image...")
+            cmd_build_image = ["docker", "build", "-t", image_name, "."]
+            if not self.run_command(cmd_build_image):
+                print("Failed to build Docker image")
+                return False
+
+        # Check if container exists
+        cmd_check_container = ["docker", "ps", "-a", "--filter", f"name={container_name}", "--format", "{{.Names}}"]
+        result = subprocess.run(cmd_check_container, capture_output=True, text=True, cwd=Paths.project_root)
+        container_exists = container_name in result.stdout
+
+        if not container_exists:
+            print("Creating and starting container...")
+            cmd_create = ["docker", "run", "-d", "--name", container_name,
+                         "-v", f"{Paths.project_root}:/src", image_name]
+            if not self.run_command(cmd_create):
+                print("Failed to create container")
+                return False
+        else:
+            # Check if container is running
+            cmd_check_running = ["docker", "inspect", "-f", "{{.State.Running}}", container_name]
+            result = subprocess.run(cmd_check_running, capture_output=True, text=True, cwd=Paths.project_root)
+            if "false" in result.stdout:
+                print("Starting existing container...")
+                cmd_start = ["docker", "start", container_name]
+                if not self.run_command(cmd_start):
+                    print("Failed to start container")
+                    return False
+
+        # Build in container
+        print("Compiling in Docker container...")
+        build_cmd = f"cd /src && cmake -B /src/build_linux && cmake --build /src/build_linux --target {target}"
+        cmd_build = ["docker", "exec", container_name, "bash", "-c", build_cmd]
+
+        if not self.run_command(cmd_build):
+            print("Docker compilation failed")
+            return False
+
+        print("Docker compilation completed")
+
+        # Copy executable only if install is requested
+        if install:
+            source_path = Paths.build_linux_dir / target
+            dest_path = Paths.install_svc / target
+
+            if source_path.exists():
+                print(f"Installing executable: {source_path} -> {dest_path}")
+                try:
+                    dest_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source_path, dest_path)
+                    dest_path.chmod(0o755)
+                    print("Docker build and install complete")
+                    return True
+                except Exception as e:
+                    print(f"Installation failed: {e}")
+                    return False
+            else:
+                print(f"Executable not found: {source_path}")
+                return False
+
+        return True
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Project build script")
+    parser.add_argument(
+        "command",
+        nargs="?",
+        default="help",
+        choices=["build", "clean", "test", "all", "mac", "linux", "docker", "help"],
+        help="Command to execute: build (auto-detect), mac/linux (specify platform), clean, test, all, docker",
+    )
+    parser.add_argument(
+        "target",
+        nargs="?",
+        default="cov",
+        help="Build target (default: cov) or test name when using 'test' command",
+    )
+    parser.add_argument(
+        "test_case",
+        nargs="?",
+        help="Specific test case to run (only for 'test' command)",
+    )
+    parser.add_argument(
+        "--release", "-r", action="store_true", help="Use Release build type"
+    )
+    parser.add_argument(
+        "--install",
+        action="store_true",
+        default=True,
+        help="Install executable after build (default: True)",
+    )
+    parser.add_argument(
+        "--no-install",
+        action="store_false",
+        dest="install",
+        help="Do not install executable after build",
+    )
+
+    args: Any = parser.parse_args()
+
+    if args.command == "help" or (len(sys.argv) == 1):
+        parser.print_help()
+        print("\nusage:")
+        print("  bu                    # Show this help")
+        print("  bu build              # Auto-detect platform and build")
+        print("  bu mac                # Build for macOS")
+        print("  bu linux              # Build for Linux")
+        print("  bu mac cov            # Build specific target for macOS")
+        print("  bu clean              # Clean build directory")
+        print("  bu test               # Run all tests")
+        print("  bu test test_lib      # Run specific test")
+        print("  bu test test_exec \"config: backward_compatibility\"  # Run specific test case")
+        print("  bu docker             # Build using Docker container")
+        print("  bu docker cov         # Build specific target with Docker")
+        print("  bu all                # Clean, build all, and test")
+        return
+
+    bs = BuildScript()
+    bs.target = args.target
+    bs.build_type = "Release" if args.release else "Debug"
+
+    if args.command == "mac":
+        bs.build_dir = Paths.build_dir
+        args.command = "build"
+    elif args.command == "linux":
+        bs.build_dir = Paths.build_linux_dir
+        os.environ["CC"] = "/usr/bin/clang"
+        os.environ["CXX"] = "/usr/bin/clang++"
+        args.command = "build"
+    elif args.command == "docker":
+        # Docker build doesn't need further processing
+        pass
+
+    print("=== Project Build Script ===")
+    print(f"Command: {args.command}")
+    print(f"Target: {bs.target}")
+    print(f"Build type: {bs.build_type}")
+    print(f"Install: {args.install}")
+    print(f"Operating system: {platform.system()}")
+    print(f"Build directory: {bs.build_dir}")
+    print("===========================")
+
+    success = True
+
+    if args.command == "clean":
+        bs.clean()
+
+    elif args.command == "test":
+        if not bs.configure(enable_tests=True):
+            print("CMake configuration failed")
+            sys.exit(1)
+        specific_test = args.target if args.target != "cov" else None
+        success = bs.run_tests(specific_test, args.test_case)
+
+    elif args.command == "docker":
+        target = args.target if args.target != "cov" else "cov"
+        success = bs.run_docker_build(target, args.install)
+
+    elif args.command == "all":
+        bs.clean()
+        if not bs.configure(enable_tests=True):
+            print("CMake configuration failed")
+            sys.exit(1)
+
+        bs.target = "all"
+        if not bs.build():
+            print("Build failed")
+            sys.exit(1)
+
+        bs.run_tests()
+
+        if args.install:
+            bs.target = args.target
+            executable = bs.find_exec()
+            if executable:
+                success = bs.install(executable)
+            else:
+                success = False
+
+    else:
+        if not bs.configure():
+            print("CMake configuration failed")
+            sys.exit(1)
+
+        if not bs.build():
+            print("Build failed")
+            sys.exit(1)
+
+        if args.install:
+            executable = bs.find_exec()
+            if executable:
+                success = bs.install(executable)
+            else:
+                success = False
+
+    if success:
+        print("=== Build completed ===")
+    else:
+        print("=== Build failed ===")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
+

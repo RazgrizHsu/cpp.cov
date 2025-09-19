@@ -1,0 +1,58 @@
+config.h
+3rd/*-prefix/
+3rd/bin/
+3rd/include/
+3rd/share/
+
+# Out-of-source build dir
+build
+
+# Compiled Object files
+**/.DS_Store
+*.slo
+*.lo
+*.o
+*.obj
+*.swp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+**/cmake-build-debug
+**/CMakeCache.txt
+**/cmake_install.cmake
+**/install_manifest.txt
+**/CMakeFiles/
+**/CTestTestfile.cmake
+**/Makefile
+**/*.cbp
+**/CMakeScripts
+**/compile_commands.json
+**/*.vcxproj*
+**/*.sln*
+.vs
+aacgain.xcodeproj/project.xcworkspace/xcuserdata
+aacgain.xcodeproj/xcuserdata
+mp3gain/mpglibDBL/mpglib.xcodeproj/xcuserdata
+mp3gain/mpglibDBL/mpglib.xcodeproj/project.xcworkspace/xcuserdata

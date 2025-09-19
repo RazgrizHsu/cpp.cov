@@ -1,0 +1,85 @@
+##### Windows
+Thumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+##### Linux
+*~
+.fuse_hidden*
+.Trash-*
+.nfs*
+.DS_Store
+# Thumbnails
+._*
+
+# Generated files
+bin/
+gen/
+out/
+**/build/
+
+# Log Files
+*.log
+
+# External native build folder generated in Android Studio 2.2 and later
+.externalNativeBuild
+
+##### CMake
+cmake-build-*/
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.Json
+CTestTestfile.cmake
+_deps
+
+##### C++
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+.idea/workspace.xml
+build_linux
+.cache/clangd/index
+
+# Autotools generated files
+**/autoaux/config.guess
+**/autoaux/config.sub
+**/autoaux/compile
+**/autoaux/depcomp
+**/autoaux/install-sh
+**/autoaux/ltmain.sh
+**/autoaux/missing
