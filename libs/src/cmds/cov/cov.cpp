@@ -223,6 +223,7 @@ void doImages( const IDir *rootDir ) {
 	//========================================================================
 	// 處理圖片
 	//========================================================================
+	auto cc = cmds::cov::CovCfg::load();
 	lg::info( "------------------ process pics ------------------" );
 	auto dirs = rootDir->findDirs( []( const IDir &dir ) -> IFindRst {
 
@@ -271,6 +272,8 @@ void doImages( const IDir *rootDir ) {
 		lg::info( "[pic][{}/{}] scan [deep:{}|files:{}][dirs:{}|files:{}]\n dir: {}", idx, siz, dir->infos.deep, dir->infos.files, dir->dirs.size(), dir->files.size(), dir->path.string() );
 
 		auto hasError = false;
+		auto cfg = cc->findConfigImg( dir->path );
+		lg::info( "settings: {}x{}, q={}, scale={}, {}", cfg->w, cfg->h, cfg->q, cfg->forceScale, dir->path.string() );
 
 		TaskPool tasks( GL_ths_im );
 
@@ -287,7 +290,7 @@ void doImages( const IDir *rootDir ) {
 
 			if ( !isRe && exists( pto ) ) remove_all( pto );
 
-			if ( !ops.forceIncr && isRe && fil::sizeKB( fil ) <= 400 ) continue;
+			if ( !ops.forceIncr && !cfg->forceScale && isRe && fil::sizeKB( fil ) <= 400 ) continue;
 
 
 			auto data = make_shared<vector<uint8_t>>( fil::read( fil ) );
@@ -296,8 +299,8 @@ void doImages( const IDir *rootDir ) {
 
 				try {
 					lg::info( "[img] {} {}", isRe ? "RE=>" : "", fil.filename().string() );
-					auto img = mda::img::resize( *data, GL_W, GL_H, { .increase = ops.forceIncr } );
-					mda::img::saveWebp( img, pto, isRe ? GL_IQ - 2 : GL_IQ );
+					auto img = mda::img::resize( *data, cfg->w, cfg->h, { .increase = ops.forceIncr || cfg->forceScale } );
+					mda::img::saveWebp( img, pto, isRe ? cfg->q - 2 : cfg->q );
 					if ( !isRe ) fs::remove( fil );
 
 				}

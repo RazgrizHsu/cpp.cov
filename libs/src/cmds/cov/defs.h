@@ -12,13 +12,14 @@ static const std::filesystem::path PATH_Conf = rz::fmt( "{}/.config/{}", std::ge
 
 class CfgImg : public IJsonDataItem<CfgImg> {
 public:
-	int q = 66;
-	int w = 1680;
-	int h = 1280;
+	int q = 60;
+	int w = 1920;
+	int h = 1680;
 	int mxs = 450; //kb
+	bool forceScale = false;
 	string desc;
 
-	IJsonFields( CfgImg, q, w, h, mxs, desc );
+	IJsonFields( CfgImg, q, w, h, mxs, forceScale, desc );
 };
 
 class CfgVdo : public IJsonDataItem<CfgVdo> {
@@ -143,6 +144,7 @@ public:
 	}
 
 	CfgImg *findConfigImg( const fs::path &path ) {
+		static CfgImg defaultCfg; // 靜態預設設定
 
 		auto p = path;
 		CfgImg *ci = nullptr;
@@ -153,7 +155,7 @@ public:
 			else p = p.parent_path().string();
 		}
 
-		if ( !ci ) ci = &cfgImgs[path.string()];
+		if ( !ci ) ci = &defaultCfg;
 
 		return ci;
 	}

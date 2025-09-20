@@ -10,10 +10,9 @@ using namespace rz;
 using namespace rz::io;
 
 
-inline const auto GL_W = 1920;
-inline const auto GL_H = 1680;
-inline const auto GL_VQ = 128; //offset
-inline const auto GL_IQ = 39;
+
+inline const auto GL_VQ = 128; //voice quality
+
 inline auto GL_ths_im = 6;
 inline auto GL_ths_vo = 6;
 
@@ -34,14 +33,7 @@ inline const auto vdo_spKeys = vector{ "-smaller-", "?invalid?" };
 namespace cmds::cov::core {
 
 
-
-inline bool processVideoFile(
-	const fs::path &pathIn,                   // 輸入視頻檔案路徑
-	const fs::path &pathOu,                   // 輸出視頻檔案路徑
-	const string &stat,                       // 顯示的狀態文字
-	const shared_ptr<CovInfo> &ci = nullptr, // 可選的轉換信息
-	double *totalRdu = nullptr
-) {
+inline bool processVideoFile( const fs::path &pathIn, const fs::path &pathOu, const string &stat, const shared_ptr<CovInfo> &ci = nullptr, double *totalRdu = nullptr) {
 	try {
 		auto cc = cmds::cov::CovCfg::load();
 
@@ -448,10 +440,11 @@ inline void onArcFile( const fs::path &pRoot, const fs::path &pArc, arc::IArchiv
 
 			taskImgs.enqueue( [=,&cntImgOk]() {
 				try {
+					auto cfg = cc->findConfigImg( pto );
 
 					auto d = data;
-					auto img = mda::img::resize( *d, GL_W, GL_H, { .increase = ops.forceIncr } );
-					mda::img::saveWebp( img, pto, GL_IQ );
+					auto img = mda::img::resize( *d, cfg->w, cfg->h, { .increase = ops.forceIncr || cfg->forceScale } );
+					mda::img::saveWebp( img, pto, cfg->q );
 					cntImgOk++;
 				}
 				catch ( std::exception &ex ) {

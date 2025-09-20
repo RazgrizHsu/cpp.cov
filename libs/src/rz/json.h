@@ -76,4 +76,5 @@ public:
 
 #define IJsonFields(...) \
 	public: \
-	DEFINE_TYPE_INTRUSIVE( __VA_ARGS__ )
+	DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT( __VA_ARGS__ )
+	//DEFINE_TYPE_INTRUSIVE( __VA_ARGS__ ) //嚴格模式

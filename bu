@@ -31,7 +31,7 @@ class BuildScript:
             print("Unsupported operating system")
             sys.exit(1)
 
-    def run_command(self, cmd, cwd=None, check=True):
+    def run_command(self, cmd, cwd=None, check=True, capture_output=False):
         if cwd is None:
             cwd = Paths.project_root
 
@@ -39,21 +39,29 @@ class BuildScript:
         print(f"Working directory: {cwd}")
 
         try:
-            result = subprocess.run(
-                cmd,
-                cwd=cwd,
-                check=check,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
-            if result.stdout:
-                print(result.stdout)
-            return result.returncode == 0
+            if capture_output:
+                # 原本的方式：捕獲輸出後顯示
+                result = subprocess.run(
+                    cmd,
+                    cwd=cwd,
+                    check=check,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+                if result.stdout:
+                    print(result.stdout)
+                return result.returncode == 0
+            else:
+                # 實時顯示輸出
+                result = subprocess.run(
+                    cmd,
+                    cwd=cwd,
+                    check=check,
+                )
+                return result.returncode == 0
         except subprocess.CalledProcessError as e:
             print(f"Command execution failed: {e}")
-            if e.stdout:
-                print(e.stdout)
             return False
 
     def clean(self):
@@ -146,17 +154,98 @@ class BuildScript:
             print(f"Installation failed: {e}")
             return False
 
+    def find_test_case(self, search_term):
+        all_tests = self.get_targets()
+        found_cases = []
+
+        for test_target in all_tests:
+            # 先建置測試
+            cmd = [
+                "cmake",
+                "--build",
+                str(self.build_dir),
+                "--config",
+                self.build_type,
+                "--target",
+                test_target,
+            ]
+
+            if not self.run_command(cmd, check=False, capture_output=True):
+                continue
+
+            test_exe = self.build_dir / test_target
+            if test_exe.exists() and os.access(test_exe, os.X_OK):
+                # 取得所有測試案例列表
+                list_cmd = [str(test_exe), "--list-test-cases"]
+                try:
+                    result = subprocess.run(
+                        list_cmd,
+                        capture_output=True,
+                        text=True,
+                        check=False
+                    )
+                    # 搜尋包含關鍵字的測試案例
+                    for line in result.stdout.strip().split('\n'):
+                        if line.strip() and search_term in line:
+                            found_cases.append((test_target, line.strip()))
+                except:
+                    continue
+
+        if not found_cases:
+            return None, None
+        elif len(found_cases) == 1:
+            return found_cases[0]
+        else:
+            print(f"Found {len(found_cases)} matching test cases:")
+            print()
+            for i, (test_file, test_case) in enumerate(found_cases, 1):
+                print(f"  {i}. [{test_file}] {test_case}")
+            print()
+
+            while True:
+                try:
+                    choice = input("Select test case (1-{}): ".format(len(found_cases)))
+                    choice_num = int(choice)
+                    if 1 <= choice_num <= len(found_cases):
+                        return found_cases[choice_num - 1]
+                    else:
+                        print(f"Please enter a number between 1 and {len(found_cases)}")
+                except (ValueError, KeyboardInterrupt):
+                    print("\nOperation cancelled")
+                    return None, None
+
+    def get_targets(self):
+        test_dir = Paths.project_root / "test"
+        test_targets = []
+
+        if test_dir.exists():
+            for item in test_dir.iterdir():
+                if item.is_dir() and not item.name.startswith('.'):
+                    test_targets.append(f"test_{item.name}")
+
+        return sorted(test_targets)
+
     def run_tests(self, specific_test=None, test_case=None):
-        tars = ["test_base", "test_exec", "test_lib", "test_mod", "test_run"]
+        tars = self.get_targets()
 
         if specific_test:
-            if specific_test in tars:
+            # 檢查是否是測試案例名稱而非測試檔案名稱
+            if specific_test not in tars and not test_case:
+                # 將 specific_test 當作測試案例名稱處理
+                search_term = specific_test
+                found_result = self.find_test_case(search_term)
+                if found_result[0] is not None:
+                    found_test, test_case = found_result
+                    tars = [found_test]
+                    print(f"Running test case '{test_case}' from {found_test}")
+                else:
+                    print(f"No test cases found matching '{search_term}'")
+                    return False
+            elif specific_test in tars:
                 tars = [specific_test]
                 print(f"Running specific test: {specific_test}")
             else:
-                print(
-                    f"Error: Unknown test '{specific_test}'. Available tests: {', '.join(tars)}"
-                )
+                print(f"Error: Unknown test '{specific_test}'. Available tests: {', '.join(tars)}")
                 return False
         else:
             print("Running all tests")
@@ -185,7 +274,7 @@ class BuildScript:
 
                 test_cmd = [str(test_exe)]
                 if test_case:
-                    test_cmd.extend(["--test-case", test_case])
+                    test_cmd.append(f"--test-case={test_case}")
                     print(f"Running specific test case: {test_case}")
 
                 test_success = self.run_command(test_cmd, check=False)
@@ -208,7 +297,7 @@ class BuildScript:
 
         # Check if image exists, build if not
         cmd_check_image = ["docker", "image", "inspect", image_name]
-        if not self.run_command(cmd_check_image, check=False):
+        if not self.run_command(cmd_check_image, check=False, capture_output=True):
             print("Docker image not found. Building image...")
             cmd_build_image = ["docker", "build", "-t", image_name, "."]
             if not self.run_command(cmd_build_image):

@@ -80,3 +80,37 @@ RETRY:
 		REQUIRE_EQ( ci->A, 987654321 );
 	}
 }
+
+
+#include "cmds/cov/defs.h"
+
+TEST_CASE( "json: CfgImg 兼容性測試" ) {
+
+	// 測試舊格式
+	string oldJson = R"({"q":50,"w":1800,"h":1600,"mxs":400,"desc":"test"})";
+
+	SUBCASE( "載入舊設定檔應該成功" ) {
+		auto cfg = cmds::cov::CfgImg::fromJson( oldJson );
+
+		REQUIRE_EQ( cfg.q, 50 );
+		REQUIRE_EQ( cfg.w, 1800 );
+		REQUIRE_EQ( cfg.h, 1600 );
+		REQUIRE_EQ( cfg.mxs, 400 );
+		REQUIRE_EQ( cfg.forceScale, false );  // 應該使用預設值
+		REQUIRE_EQ( cfg.desc, "test" );
+	}
+
+	// 測試新格式
+	string newJson = R"({"q":70,"w":1920,"h":1680,"mxs":450,"forceScale":true,"desc":"new"})";
+
+	SUBCASE( "載入新設定檔應該成功" ) {
+		auto cfg = cmds::cov::CfgImg::fromJson( newJson );
+
+		REQUIRE_EQ( cfg.q, 70 );
+		REQUIRE_EQ( cfg.w, 1920 );
+		REQUIRE_EQ( cfg.h, 1680 );
+		REQUIRE_EQ( cfg.mxs, 450 );
+		REQUIRE_EQ( cfg.forceScale, true );
+		REQUIRE_EQ( cfg.desc, "new" );
+	}
+}
