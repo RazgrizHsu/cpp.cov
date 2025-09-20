@@ -1,10 +1,9 @@
 #pragma once
 
 
-#include <rz/mda/_common/conv.h>
+#include <rz/mda/common/conv.h>
 #include <rz/sys/cmdr.h>
 
-#include "./conv.h"
 #include "./gain.hpp"
 
 

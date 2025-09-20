@@ -71,9 +71,9 @@ _deps
 *.exe
 *.out
 *.app
-.idea/workspace.xml
-build_linux
-.cache/clangd/index
+.idea/
+.cache/
+build_linux/
 
 # Autotools generated files
 **/autoaux/config.guess

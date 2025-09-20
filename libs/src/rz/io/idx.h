@@ -1,15 +1,7 @@
 #pragma once
 
-namespace rz::io {
-
-	namespace fs = std::filesystem;
-
-}
-
 #include "./type.h"
 #include "./utils.h"
-
-#include "./cli.hpp"
 
 #include "./dir.h"
 #include "./fil.h"

@@ -3,7 +3,7 @@
 #include <set>
 #include <regex>
 #include <rz/base/idx.h>
-#include <rz/coll.h>
+#include <rz/coll.hpp>
 
 namespace rz::io {
 namespace fs = std::filesystem;

@@ -55,8 +55,8 @@ if( APPLE AND BUILD_GUI )
 	)
 
 	# 設定圖標檔案路徑
-	set(APP_PATH_ICON "${CMAKE_SOURCE_DIR}/rss/icon.icns")
-	set(APP_PATH_IMG6 "${CMAKE_SOURCE_DIR}/rss/ico64.png")
+	set(APP_PATH_ICON "${CMAKE_SOURCE_DIR}/libs/rss/icon.icns")
+	set(APP_PATH_IPNG "${CMAKE_SOURCE_DIR}/libs/rss/ico64.png")
 
 
 	# 設定 MACOSX_BUNDLE_ICON_FILE 為圖標檔案名（不包含路徑）
@@ -65,9 +65,9 @@ if( APPLE AND BUILD_GUI )
 
 	# 將圖標檔案添加為資源並設定其在包中的位置
 	set_source_files_properties(${APP_PATH_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
-	set_source_files_properties(${APP_PATH_IMG6} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+	set_source_files_properties(${APP_PATH_IPNG} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 
-	target_sources(ui PRIVATE ${APP_PATH_ICON} ${APP_PATH_IMG6})
+	target_sources(ui PRIVATE ${APP_PATH_ICON} ${APP_PATH_IPNG})
 
 # 可選：複製其他資源檔案到 .app 包
 # file(GLOB RESOURCE_FILES "${CMAKE_SOURCE_DIR}/resources/*")

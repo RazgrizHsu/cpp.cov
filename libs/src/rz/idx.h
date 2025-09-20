@@ -1,7 +1,6 @@
 #pragma once
 
 #include "./locale.h"
-#include "./define.h"
 
 #include "./types.h"
 
@@ -10,7 +9,7 @@
 
 #include "./dt/idx.h"
 #include "./code/idx.h"
-#include "./coll.h"
+#include "./coll.hpp"
 #include "./util.h"
 #include "./rnd.h"
 #include "./io/idx.h"
@@ -21,7 +20,6 @@
 #include "./json.h"
 
 
-#include "./net/idx.h"
 
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
 
