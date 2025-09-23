@@ -98,3 +98,35 @@ TEST_CASE( "opencv: resize_mem" ) {
 	img::saveJpg( img, "/Volumes/tmp/test/test-ok.jpg", 68 );
 }
 
+TEST_CASE( "opencv: solid_color_detection" ) {
+	using namespace rz::mda;
+
+	cv::Mat whiteImg( 100, 100, CV_8UC3, cv::Scalar( 255, 255, 255 ) );
+	cv::Mat blackImg( 100, 100, CV_8UC3, cv::Scalar( 0, 0, 0 ) );
+	cv::Mat grayImg( 100, 100, CV_8UC3, cv::Scalar( 128, 128, 128 ) );
+	cv::Mat redImg( 100, 100, CV_8UC3, cv::Scalar( 0, 0, 255 ) );
+
+	cv::Mat noiseImg( 100, 100, CV_8UC3, cv::Scalar( 128, 128, 128 ) );
+	cv::randu( noiseImg, cv::Scalar( 100, 100, 100 ), cv::Scalar( 156, 156, 156 ) );
+
+	bool whiteResult = img::isSolidColorImage( whiteImg );
+	bool blackResult = img::isSolidColorImage( blackImg );
+	bool grayResult = img::isSolidColorImage( grayImg );
+	bool redResult = img::isSolidColorImage( redImg );
+	bool noiseResult = img::isSolidColorImage( noiseImg );
+
+	lg::info( "[test] 白色單色檢測: {}", whiteResult );
+	lg::info( "[test] 黑色單色檢測: {}", blackResult );
+	lg::info( "[test] 灰色單色檢測: {}", grayResult );
+	lg::info( "[test] 紅色單色檢測: {}", redResult );
+	lg::info( "[test] 雜訊圖檢測: {}", noiseResult );
+
+	CHECK( whiteResult == true );
+	CHECK( blackResult == true );
+	CHECK( grayResult == true );
+	CHECK( redResult == true );
+	CHECK( noiseResult == false );
+
+	lg::info( "[test] 單色圖片檢測測試完成" );
+}
+

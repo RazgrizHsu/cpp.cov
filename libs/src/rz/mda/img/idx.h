@@ -70,6 +70,22 @@ struct reopt {
 	bool increase = false;
 };
 
+inline bool isSolidColorImage( const cv::Mat &img, double threshold = 5.0 ) {
+	if ( img.empty() ) return true;
+
+	cv::Mat gray;
+	if ( img.channels() > 1 ) {
+		cv::cvtColor( img, gray, cv::COLOR_BGR2GRAY );
+	} else {
+		gray = img;
+	}
+
+	cv::Scalar meanVal, stdDev;
+	cv::meanStdDev( gray, meanVal, stdDev );
+
+	return stdDev[0] <= threshold;
+}
+
 inline cv::Mat resize( const cv::Mat &img, int maxW, int maxH, reopt opt = {} ) {
 	auto w = img.cols;
 	auto h = img.rows;

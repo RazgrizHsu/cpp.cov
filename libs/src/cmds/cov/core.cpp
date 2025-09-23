@@ -443,7 +443,15 @@ inline void onArcFile( const fs::path &pRoot, const fs::path &pArc, arc::IArchiv
 					auto cfg = cc->findConfigImg( pto );
 
 					auto d = data;
-					auto img = mda::img::resize( *d, cfg->w, cfg->h, { .increase = ops.forceIncr || cfg->forceScale } );
+					auto srcImg = mda::img::read( *d );
+
+					if ( mda::img::isSolidColorImage( srcImg ) ) {
+						lg::info( "[img] 略過單色圖片: {}", pto.filename().string() );
+						cntImgOk++;
+						return;
+					}
+
+					auto img = mda::img::resize( srcImg, cfg->w, cfg->h, { .increase = ops.forceIncr || cfg->forceScale } );
 					mda::img::saveWebp( img, pto, cfg->q );
 					cntImgOk++;
 				}
