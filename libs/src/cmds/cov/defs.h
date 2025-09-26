@@ -17,20 +17,56 @@ public:
 	int h = 1680;
 	int mxs = 450; //kb
 	bool forceScale = false;
+	bool enable = true;
 	string desc;
 
-	IJsonFields( CfgImg, q, w, h, mxs, forceScale, desc );
+	IJsonFields( CfgImg, q, w, h, mxs, forceScale, enable, desc );
 };
 
 class CfgVdo : public IJsonDataItem<CfgVdo> {
 public:
-	int q;
-	int mxw;
+	int q = 66;
+	int mxw = 864;
+	bool enable = true;
 	string desc;
 
 	CfgVdo( int quality = 66, int mxw = 864, string desc = "" ) 		: q(quality), mxw(mxw), desc(desc) {}
 
-	IJsonFields( CfgVdo, q, mxw, desc );
+	IJsonFields( CfgVdo, q, mxw, enable, desc );
+};
+
+class CfgPath : public IJsonDataItem<CfgPath> {
+public:
+	string desc;
+	optional<CfgImg> img;
+	optional<CfgVdo> vdo;
+
+	friend void to_json( Json &j, const CfgPath &json_t ) {
+		j["desc"] = json_t.desc;
+		if ( json_t.img.has_value() ) {
+			j["img"] = json_t.img.value();
+		} else {
+			j["img"] = nullptr;
+		}
+		if ( json_t.vdo.has_value() ) {
+			j["vdo"] = json_t.vdo.value();
+		} else {
+			j["vdo"] = nullptr;
+		}
+	}
+	friend void from_json( const Json &j, CfgPath &json_t ) {
+		json_t.desc = j.value("desc", json_t.desc);
+		if ( j.contains("img") && !j["img"].is_null() ) {
+			json_t.img = j["img"].get<CfgImg>();
+		} else {
+			json_t.img = std::nullopt;
+		}
+		if ( j.contains("vdo") && !j["vdo"].is_null() ) {
+			json_t.vdo = j["vdo"].get<CfgVdo>();
+		} else {
+			json_t.vdo = std::nullopt;
+		}
+	}
 };
 
 
@@ -101,25 +137,20 @@ public:
 class CovCfg final : public IJsonData<CovCfg> {
 public:
 	vector<string> excludes{ };
-	map<string, CfgImg> cfgImgs{};
-	map<string, CfgVdo> cfgVdos{
-		{ "/tmp", CfgVdo( 28, 1680, "") },
-	};
+	map<string, CfgPath> paths{};
 
 	string rootArts = "/tmp";
 	vector<string> rmQuoteKeys{ };
 
 	friend void to_json( Json &j, const CovCfg &json_t ) {
 		j["excludes"] = json_t.excludes;
-		j["cfgImgs"] = json_t.cfgImgs;
-		j["cfgVdos"] = json_t.cfgVdos;
+		j["paths"] = json_t.paths;
 		j["rootArts"] = json_t.rootArts;
 		j["rmQuoteKeys"] = json_t.rmQuoteKeys;
 	}
 	friend void from_json( const Json &j, CovCfg &json_t ) {
 		json_t.excludes = j.value("excludes", json_t.excludes);
-		json_t.cfgImgs = j.value("cfgImgs", json_t.cfgImgs);
-		json_t.cfgVdos = j.value("cfgVdos", json_t.cfgVdos);
+		json_t.paths = j.value("paths", json_t.paths);
 		json_t.rootArts = j.value("rootArts", json_t.rootArts);
 		json_t.rmQuoteKeys = j.value("rmQuoteKeys", json_t.rmQuoteKeys);
 	}
@@ -144,35 +175,36 @@ public:
 	}
 
 	CfgImg *findConfigImg( const fs::path &path ) {
-		static CfgImg defaultCfg; // 靜態預設設定
+		static CfgImg defaultCfg;
 
 		auto p = path;
-		CfgImg *ci = nullptr;
 
-		while ( p != "/" && !ci ) {
-			auto fnd = cfgImgs.find( p.string() );
-			if ( fnd != cfgImgs.end() ) ci = &fnd->second;
-			else p = p.parent_path().string();
+		while ( p != "/" ) {
+			auto fnd = paths.find( p.string() );
+			if ( fnd != paths.end() && fnd->second.img.has_value() ) {
+				return &fnd->second.img.value();
+			}
+			p = p.parent_path().string();
 		}
 
-		if ( !ci ) ci = &defaultCfg;
-
-		return ci;
+		return &defaultCfg;
 	}
-
-
 
 	CfgImg *findCfgImg(const fs::path &path) {
 		string pathStr = path.string();
 		string lowerPathStr = pathStr;
 		ranges::transform( lowerPathStr, lowerPathStr.begin(), ::tolower);
 
-		for (auto &pair : cfgImgs) {
+		for (auto &pair : paths) {
+			if (!pair.second.img.has_value()) continue;
+
 			string key = pair.first;
 			string lowerKey = key;
 			ranges::transform( lowerKey, lowerKey.begin(), ::tolower);
 
-			if (lowerPathStr.find(lowerKey) != string::npos) return &pair.second;
+			if (lowerPathStr.find(lowerKey) != string::npos) {
+				return &pair.second.img.value();
+			}
 		}
 
 		return nullptr;
@@ -183,13 +215,15 @@ public:
 		string lowerPathStr = pathStr;
 		ranges::transform( lowerPathStr, lowerPathStr.begin(), ::tolower);
 
-		for (auto &pair : cfgVdos) {
+		for (auto &pair : paths) {
+			if (!pair.second.vdo.has_value()) continue;
+
 			string key = pair.first;
 			string lowerKey = key;
 			ranges::transform( lowerKey, lowerKey.begin(), ::tolower);
 
 			if (lowerPathStr.find(lowerKey) != string::npos) {
-				auto sec = &pair.second;
+				auto sec = &pair.second.vdo.value();
 				sec->desc += "path( " + lowerKey + " )";
 				return sec;
 			}
@@ -197,6 +231,7 @@ public:
 
 		return nullptr;
 	}
+
 };
 
 }

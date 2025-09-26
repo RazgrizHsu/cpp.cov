@@ -43,11 +43,16 @@ inline bool processVideoFile( const fs::path &pathIn, const fs::path &pathOu, co
 		auto vi = mda::getVideoInfo( pathIn );
 
 		auto cfg = cc->findCfgVdo( pathOu );
+		if ( cfg && !cfg->enable ) {
+			lg::info( "[vdo] skip by config disable: {}", pathOu.string() );
+			return true;
+		}
+
 		mda::vdo::opts opt = { .rsz = ops.resize, .txt = stat };
 		if ( cfg ) {
 			opt.crf = cfg->q;
 			opt.mxw = cfg->mxw;
-			lg::info( "[vdo] use cfg q[{}] maxW[{}] by {}", cfg->q, cfg->mxw, cfg->desc );
+			lg::info( "[vdo] use cfg q[{}] maxW[{}] enable={} by {}", cfg->q, cfg->mxw, cfg->enable, cfg->desc );
 		}
 
 		if ( vi.streams.size() < 2 ) {

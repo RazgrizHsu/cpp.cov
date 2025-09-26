@@ -268,12 +268,13 @@ void doImages( const IDir *rootDir ) {
 		auto ci = CovInfo::get( dir->path );
 		if ( !ops.forceIncr && ci->img ) continue; //已轉檔過就略過
 
+		auto cfg = cc->findConfigImg( dir->path );
+		if ( !cfg->enable ) continue; //設定為不轉換就略過
 
 		lg::info( "[pic][{}/{}] scan [deep:{}|files:{}][dirs:{}|files:{}]\n dir: {}", idx, siz, dir->infos.deep, dir->infos.files, dir->dirs.size(), dir->files.size(), dir->path.string() );
 
 		auto hasError = false;
-		auto cfg = cc->findConfigImg( dir->path );
-		lg::info( "settings: {}x{}, q={}, scale={}, {}", cfg->w, cfg->h, cfg->q, cfg->forceScale, dir->path.string() );
+		lg::info( "settings: {}x{}, q={}, scale={}, enable={}, {}", cfg->w, cfg->h, cfg->q, cfg->forceScale, cfg->enable, dir->path.string() );
 
 		TaskPool tasks( GL_ths_im );
 

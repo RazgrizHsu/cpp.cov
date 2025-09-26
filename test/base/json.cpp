@@ -97,11 +97,12 @@ TEST_CASE( "json: CfgImg 兼容性測試" ) {
 		REQUIRE_EQ( cfg.h, 1600 );
 		REQUIRE_EQ( cfg.mxs, 400 );
 		REQUIRE_EQ( cfg.forceScale, false );  // 應該使用預設值
+		REQUIRE_EQ( cfg.enable, true );       // 新增的 enable 預設值
 		REQUIRE_EQ( cfg.desc, "test" );
 	}
 
 	// 測試新格式
-	string newJson = R"({"q":70,"w":1920,"h":1680,"mxs":450,"forceScale":true,"desc":"new"})";
+	string newJson = R"({"q":70,"w":1920,"h":1680,"mxs":450,"forceScale":true,"enable":false,"desc":"new"})";
 
 	SUBCASE( "載入新設定檔應該成功" ) {
 		auto cfg = cmds::cov::CfgImg::fromJson( newJson );
@@ -111,6 +112,96 @@ TEST_CASE( "json: CfgImg 兼容性測試" ) {
 		REQUIRE_EQ( cfg.h, 1680 );
 		REQUIRE_EQ( cfg.mxs, 450 );
 		REQUIRE_EQ( cfg.forceScale, true );
+		REQUIRE_EQ( cfg.enable, false );
 		REQUIRE_EQ( cfg.desc, "new" );
+	}
+}
+
+TEST_CASE( "json: CfgPath 序列化測試" ) {
+	using namespace cmds::cov;
+
+	SUBCASE( "空的 CfgPath" ) {
+		CfgPath path;
+		path.desc = "test path";
+
+		auto json = path.toJson();
+		lg::info("空 path JSON: {}", json.dump());
+
+		REQUIRE_EQ( json["desc"], "test path" );
+		REQUIRE( json["img"].is_null() );
+		REQUIRE( json["vdo"].is_null() );
+	}
+
+	SUBCASE( "有 img 設定的 CfgPath" ) {
+		CfgPath path;
+		path.desc = "path with img";
+		path.img = CfgImg{};
+		path.img->enable = false;
+		path.img->q = 80;
+
+		auto json = path.toJson();
+		lg::info("有 img 但 disable JSON: {}", json.dump());
+
+		REQUIRE_EQ( json["desc"], "path with img" );
+		REQUIRE( !json["img"].is_null() );
+		REQUIRE_EQ( json["img"]["enable"], false );
+		REQUIRE_EQ( json["img"]["q"], 80 );
+		REQUIRE( json["vdo"].is_null() );
+	}
+
+	SUBCASE( "兩者都有設定的 CfgPath" ) {
+		CfgPath path;
+		path.desc = "path with both";
+		path.img = CfgImg{};
+		path.img->enable = true;
+		path.vdo = CfgVdo{};
+		path.vdo->enable = false;
+		path.vdo->q = 40;
+
+		auto json = path.toJson();
+		lg::info("兩者都有 JSON: {}", json.dump());
+
+		REQUIRE_EQ( json["desc"], "path with both" );
+		REQUIRE( !json["img"].is_null() );
+		REQUIRE_EQ( json["img"]["enable"], true );
+		REQUIRE( !json["vdo"].is_null() );
+		REQUIRE_EQ( json["vdo"]["enable"], false );
+		REQUIRE_EQ( json["vdo"]["q"], 40 );
+	}
+
+	SUBCASE( "從 JSON 載入測試" ) {
+		string testJson = R"({
+			"desc": "from json",
+			"img": null,
+			"vdo": {"q": 50, "mxw": 800, "enable": true, "desc": "test vdo"}
+		})";
+
+		auto j = Json::parse(testJson);
+		auto path = j.get<CfgPath>();
+
+		lg::info("從 JSON 載入: img={} vdo={}",
+			path.img.has_value() ? "有值" : "空",
+			path.vdo.has_value() ? "有值" : "空");
+
+		REQUIRE_EQ( path.desc, "from json" );
+		REQUIRE( !path.img.has_value() );
+		REQUIRE( path.vdo.has_value() );
+		REQUIRE_EQ( path.vdo->enable, true );
+		REQUIRE_EQ( path.vdo->q, 50 );
+		REQUIRE_EQ( path.vdo->mxw, 800 );
+		REQUIRE_EQ( path.vdo->desc, "test vdo" );
+	}
+
+	SUBCASE( "缺少欄位的 JSON 載入測試" ) {
+		string testJson = R"({
+			"desc": "missing fields"
+		})";
+
+		auto j = Json::parse(testJson);
+		auto path = j.get<CfgPath>();
+
+		REQUIRE_EQ( path.desc, "missing fields" );
+		REQUIRE( !path.img.has_value() );
+		REQUIRE( !path.vdo.has_value() );
 	}
 }
