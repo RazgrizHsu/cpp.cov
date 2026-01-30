@@ -143,6 +143,7 @@ void doVoices( const IDir *rootDir ) {
 
 		auto hasError = false;
 		vector<fs::path> gainFils;
+		mutex gainFilsMtx;
 
 		TaskPool pool( GL_ths_vo );
 
@@ -168,7 +169,7 @@ void doVoices( const IDir *rootDir ) {
 				continue;
 			}
 
-			pool.enqueue( [=,&gainFils,&hasError]() {
+			pool.enqueue( [=,&gainFils,&gainFilsMtx,&hasError]() {
 
 				lg::info( "[vo] ({}) start: {}", state, fil.filename().string() );
 				auto ptmp = fil.parent_path() / rz::fmt( "{}.tmp", fil::nameNoExt( fil ) );
@@ -187,7 +188,10 @@ void doVoices( const IDir *rootDir ) {
 						fs::remove( fil ); //如果跟原副檔名不同
 					}
 
-					gainFils.push_back( pmp3 );
+					{
+						lock_guard<mutex> lock( gainFilsMtx );
+						gainFils.push_back( pmp3 );
+					}
 				}
 				catch ( std::exception &ex ) {
 					lg::error( "[vo] cov failed, {}", ex.what() );

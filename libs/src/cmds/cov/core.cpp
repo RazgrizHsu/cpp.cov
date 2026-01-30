@@ -37,16 +37,16 @@ inline bool processVideoFile( const fs::path &pathIn, const fs::path &pathOu, co
 	try {
 		auto cc = cmds::cov::CovCfg::load();
 
+		// 先檢查是否要 skip，避免不必要的處理和 log
+		auto cfg = cc->findCfgVdo( pathOu );
+		if ( cfg && !cfg->enable ) {
+			return true;
+		}
+
 		double szo = io::fil::sizeMB( pathIn );
 		lg::info( "[vdo] process [{:.2f}]MB {}", szo, stat );
 
 		auto vi = mda::getVideoInfo( pathIn );
-
-		auto cfg = cc->findCfgVdo( pathOu );
-		if ( cfg && !cfg->enable ) {
-			lg::info( "[vdo] skip by config disable: {}", pathOu.string() );
-			return true;
-		}
 
 		mda::vdo::opts opt = { .rsz = ops.resize, .txt = stat };
 		if ( cfg ) {
@@ -191,19 +191,24 @@ inline bool processVideoFile( const fs::path &pathIn, const fs::path &pathOu, co
 
 		// 處理輸出檔案大於輸入檔案的情況
 		if ( ( szo * 1.1 ) < szn ) {
-			auto newFilename = rz::fmt( "{}{}{}.mp4", fil::nameNoExt( pathIn ), vdo_spKeys[0], szn - szo );
-			auto newPath = pathIn.parent_path() / newFilename;
-
-			lg::warn( "[vdo] new file bigger then old, rename[{}]->[{}]", pathIn.filename().string(), newFilename );
-
-			fs::rename( pTmp, newPath );
+			lg::warn( "[vdo] new file bigger then old, record info only: {} (szo:{:.2f}MB -> szn:{:.2f}MB)", pathIn.filename().string(), szo, szn );
 
 			if ( ci ) {
 				ci->vdos.push_back( pathIn.filename().string() );
-				ci->vdos.push_back( newFilename );
+
+				// 記錄詳細資訊到 vdoInfos
+				VdoInfo vdoInfo;
+				vdoInfo.name = pathIn.filename().string();
+				vdoInfo.szo = szo;
+				vdoInfo.szn = szn;
+				vdoInfo.q = opt.crf; // 使用實際的轉檔品質值
+				ci->vdoInfos.push_back( vdoInfo );
+
 				ci->save();
 			}
 
+			// 刪除變大的臨時檔案
+			fs::remove( pTmp );
 			return true;
 		}
 

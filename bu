@@ -14,7 +14,7 @@ class Paths:
     project_root = Path(__file__).parent
     build_dir = project_root / "build"
     build_linux_dir = project_root / "build_linux"
-    install_dropbox = Path("/Volumes/dyn/Dropbox/_env/scripts")
+    install_dropbox = Path("/Volumes/dyn/dbx/ev/scripts")
     install_svc = Path("/Volumes/svc/@env/scripts")
 
 
@@ -146,6 +146,11 @@ class BuildScript:
         print(f"Installing executable: {executable_path} -> {dest_path}")
 
         try:
+            # 先刪除目標檔案（避免 Dropbox 同步問題）
+            if dest_path.exists():
+                dest_path.unlink()
+                print(f"Removed existing file: {dest_path}")
+
             shutil.copy2(executable_path, dest_path)
             dest_path.chmod(0o755)
             print("Installation successful")
@@ -347,6 +352,12 @@ class BuildScript:
                 print(f"Installing executable: {source_path} -> {dest_path}")
                 try:
                     dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+                    # 先刪除目標檔案（避免 Dropbox 同步問題）
+                    if dest_path.exists():
+                        dest_path.unlink()
+                        print(f"Removed existing file: {dest_path}")
+
                     shutil.copy2(source_path, dest_path)
                     dest_path.chmod(0o755)
                     print("Docker build and install complete")
@@ -424,6 +435,10 @@ def main() -> None:
         bs.build_dir = Paths.build_dir
         args.command = "build"
     elif args.command == "linux":
+        if platform.system() != "Linux":
+            print("Error: 'linux' command can only be used on Linux systems.")
+            print("For cross-compilation from other platforms, use: ./bu docker")
+            sys.exit(1)
         bs.build_dir = Paths.build_linux_dir
         os.environ["CC"] = "/usr/bin/clang"
         os.environ["CXX"] = "/usr/bin/clang++"

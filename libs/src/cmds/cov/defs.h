@@ -69,6 +69,15 @@ public:
 	}
 };
 
+class VdoInfo : public IJsonDataItem<VdoInfo> {
+public:
+	string name;
+	double szo = 0.0;  // size old
+	double szn = 0.0;  // size new
+	int q = 0;         // quality
+
+	IJsonFields( VdoInfo, name, szo, szn, q );
+};
 
 class CovInfo : public IJsonData<CovInfo> {
 public:
@@ -76,18 +85,21 @@ public:
 	bool vo = 0;
 	bool img = 0;
 	vector<string> vdos{};
+	vector<VdoInfo> vdoInfos{};
 
 	friend void to_json( Json &j, const CovInfo &json_t ) {
 		j["dtm"] = json_t.dtm;
 		j["vo"] = json_t.vo;
 		j["img"] = json_t.img;
 		j["vdos"] = json_t.vdos;
+		j["vdoInfos"] = json_t.vdoInfos;
 	}
 	friend void from_json( const Json &j, CovInfo &json_t ) {
 		json_t.dtm = j.value("dtm", json_t.dtm);
 		json_t.vo = j.value("vo", json_t.vo);
 		json_t.img = j.value("img", json_t.img);
 		json_t.vdos = j.value("vdos", json_t.vdos);
+		json_t.vdoInfos = j.value("vdoInfos", json_t.vdoInfos);
 	}
 
 	fs::path path;

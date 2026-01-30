@@ -8,14 +8,43 @@ using namespace std;
 
 #include <signal.h>
 #include <unistd.h>
+#include <sys/select.h>
 
 void crash_handler( int sig ) {
 
-	fprintf( stderr, "Crash! wait debugger attach... PID: %d\n", getpid() );
+	fprintf( stderr, "\nCrash! Signal %d received. PID: %d\n", sig, getpid() );
+	fprintf( stderr, "Press Ctrl-D to exit, or attach debugger and set wait_for_debugger=false\n" );
 
 	volatile bool wait_for_debugger = true;
+
+	// 檢查 stdin 是否是終端
+	bool is_tty = isatty( STDIN_FILENO );
+
+	fd_set fds;
+	struct timeval tv;
+
 	while ( wait_for_debugger ) {
-		sleep( 1 );
+		// 只在終端模式下檢查輸入
+		if ( is_tty ) {
+			FD_ZERO( &fds );
+			FD_SET( STDIN_FILENO, &fds );
+			tv.tv_sec = 0;
+			tv.tv_usec = 100000; // 100ms
+
+			int ret = select( STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv );
+			if ( ret > 0 && FD_ISSET( STDIN_FILENO, &fds ) ) {
+				char buf[1];
+				ssize_t n = read( STDIN_FILENO, buf, sizeof(buf) );
+				if ( n == 0 ) { // EOF (Ctrl-D)
+					fprintf( stderr, "Received EOF, exiting...\n" );
+					exit( 1 );
+				}
+			}
+		}
+		else {
+			// 非終端模式，只等待
+			sleep( 1 );
+		}
 	}
 
 	// when debugger attached, can tune `wait_for_debugger = false` to continue
@@ -272,7 +301,7 @@ int main( int argc, char *argv[] ) {
 		  auto path = args.get<fs::path>( "path", fs::current_path() );
 
 		  auto depth = rz::io::depths( path );
-		  if ( depth <= 2 ) {
+		  if ( depth <= 3 ) {
 			  lg::info( "depth[{}] cannot run... {}", depth, path.string() );
 			  return;
 		  }
